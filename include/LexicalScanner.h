@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <iostream>
+#include <iomanip>
 #include <unordered_map>
 #include <vector>
 #include <fstream>
@@ -8,28 +9,33 @@
 
 using namespace std;
 
+// Builds a lexical symbolTable from text file
 class SourceCodeScanner {
 public:
-  SourceCodeScanner(string delim) : delimiters(delim) {}
+  SourceCodeScanner(string delim) : delimiters(delim), removeWhitespace(true) {}
   void scan(const ifstream& file);
-  string printSummary() const;
+  string summary() const;
+
+  void setRemoveWhitespace(bool b) { removeWhitespace = b; }
 
 private:
   struct TokenInfo {
     int count;
     string tokenClass;
-    //TokenInfo(int c, string t) : count(c), tokenClass(t) {}
   };
-  unordered_map<string, TokenInfo> symbolTable;
+  unordered_map<string, TokenInfo> symbolTable; // <token, TokenInfo>
   vector<string> tokens;
   string delimiters;
+  bool removeWhitespace;
 
   void generateTokens(string str);
   string classify(const string& token);
 };
 
+// Scans text file and generates tokens. Tokens are seperated by delimiters.
+// Delimiter characters are included as tokens unless they are whitespace.
 void SourceCodeScanner::scan(const ifstream& codeFile) {
-  stringstream buffer;
+  ostringstream buffer;
   buffer << codeFile.rdbuf();  // get file buffer to make string
   generateTokens(buffer.str());
 
@@ -40,16 +46,33 @@ void SourceCodeScanner::scan(const ifstream& codeFile) {
       symbolTable[token].count++;
     }
   }
-
 }
 
-string SourceCodeScanner::printSummary() const {
+// Returns a report of generated tokens and their information.
+string SourceCodeScanner::summary() const {
+  ostringstream report;
 
-  // Iterate over symbolTable to generate summary report.
+  // Set the width of each column
+  int tokenWidth = 20;
+  int countWidth = 10;
+  int classWidth = 10;
 
-  return string();
+  // Print the header
+  report << std::left << std::setw(tokenWidth) << "Token"
+         << std::setw(countWidth) << "Count"
+         << std::setw(classWidth) << "Class" << "\n";
+
+  // Print a line under the header
+  report << std::string(tokenWidth + countWidth + classWidth, '-') << "\n";
+
+  for (const auto& pair : symbolTable) {
+    report << std::left << std::setw(tokenWidth) << pair.first
+           << std::setw(countWidth) << pair.second.count
+           << std::setw(classWidth) << pair.second.tokenClass << "\n";
+  }
+
+  return report.str();
 }
-
 
 void SourceCodeScanner::generateTokens(string str) {
   size_t start = 0; // position in string to search from
@@ -59,10 +82,23 @@ void SourceCodeScanner::generateTokens(string str) {
   delim = str.find_first_of(delimiters);
 
   while (delim != string::npos) {
-    //skip 0 length
+    // skip 0 length
     if (start != delim) {
-      // token is all characters from start pos to found delim
-      tokens.push_back(str.substr(start, delim - start));
+      // token is all characters from start pos to and including delim
+      string token = str.substr(start, delim - start);
+
+      if (removeWhitespace) {
+        // erase-remove whitespace
+        token.erase(remove_if(token.begin(), token.end(), isspace), token.end());
+      }
+      if (!token.empty()) {
+        tokens.push_back(token);
+      }
+    }
+
+    // Add special character delims as tokens
+    if (!isspace(str[delim])) {
+      tokens.push_back(str.substr(delim, 1));
     }
 
     start = delim + 1;
@@ -71,7 +107,15 @@ void SourceCodeScanner::generateTokens(string str) {
 
   // Add last token if str does not end with delimiter
   if (start != str.length()) {
-    tokens.push_back(str.substr(start));
+
+    string token = str.substr(start);
+
+    if (removeWhitespace) {
+      token.erase(remove_if(token.begin(), token.end(), isspace), token.end());
+    }
+    if (!token.empty()) {
+      tokens.push_back(token);
+    }
   }
 }
 
@@ -82,9 +126,15 @@ string SourceCodeScanner::classify(const string& token) {
     } else {
       return "integer";
     }
+
   } else if (isalpha(token[0])) {
-    if (token == "if" || token == "then" || token == "else" ||
-        token == "begin" || token == "end") {
+    // remove capital letters
+    string lower;
+    for (const char& c : token) {
+      lower += tolower(c);
+    }
+    if (lower == "if" || lower == "then" || lower == "else" ||
+        lower == "begin" || lower == "end") {
       return "keyword";
     } else {
       return "identifier";
@@ -102,6 +152,8 @@ string SourceCodeScanner::classify(const string& token) {
 }
 
 /*
+token grammar:
+
 keyword ::= if | then | else | begin | end
 
     identifier -> character | character identifier
