@@ -120,19 +120,21 @@ void SourceCodeScanner::generateTokens(string str) {
 }
 
 string SourceCodeScanner::classify(const string& token) {
-  if (isdigit(token[0])) {
-    if (token.find('.')) {
+  string lower;
+
+  // not case sensitive
+  for (const char& c : token) {
+    lower += tolower(c);
+  }
+
+  if (isdigit(lower[0])) {
+    if (lower.find('.')) {
       return "real";
     } else {
       return "integer";
     }
 
-  } else if (isalpha(token[0])) {
-    // remove capital letters
-    string lower;
-    for (const char& c : token) {
-      lower += tolower(c);
-    }
+  } else if (isalpha(lower[0])) {
     if (lower == "if" || lower == "then" || lower == "else" ||
         lower == "begin" || lower == "end") {
       return "keyword";
@@ -140,10 +142,10 @@ string SourceCodeScanner::classify(const string& token) {
       return "identifier";
     }
 
-  } else if (token.size() == 1) {
-    if (token[0] == '(' || token[0] == ')' || token[0] == '[' ||
-        token[0] == ']' || token[0] == '+' || token[0] == '-' ||
-        token[0] == '=' || token[0] == ',' || token[0] == ';') {
+  } else if (lower.size() == 1) {
+    if (lower[0] == '(' || lower[0] == ')' || lower[0] == '[' ||
+        lower[0] == ']' || lower[0] == '+' || lower[0] == '-' ||
+        lower[0] == '=' || lower[0] == ',' || lower[0] == ';') {
       return "special";
     }
   }
